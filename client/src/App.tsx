@@ -78,8 +78,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   }
 
   if (!isAuthenticated) {
-    // Redirect to Manus OAuth login
-    window.location.href = getLoginUrl();
+    window.location.href = "/sponsor-login";
     return <LoadingFallback />;
   }
 
@@ -128,11 +127,8 @@ function Router() {
       <Switch>
         {/* Public routes */}
         <Route path="/" component={Home} />
-        <Route path="/login">{() => {
-          // Redirect /login to Manus OAuth
-          window.location.href = getLoginUrl();
-          return <LoadingFallback />;
-        }}</Route>
+        <Route path="/login" component={SponsorLogin} />
+        <Route path="/sponsor-login" component={SponsorLogin} />
 
         {/* Protected dashboard routes */}
         <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>

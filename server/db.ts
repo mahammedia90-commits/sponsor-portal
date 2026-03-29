@@ -13,6 +13,7 @@ import {
   leads,
   notifications,
   files,
+  otpCodes,
   campaigns,
   brandExposureMetrics,
   type InsertSponsorProfile,
@@ -489,4 +490,24 @@ export async function getDashboardData(sponsorId: number) {
     campaigns: campaignStats,
     brandExposure: exposureStats,
   };
+}
+
+// === OTP ===
+export async function createOtp(phone: string, code: string) {
+  const db = await getDb();
+  if (!db) return;
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+  await db.insert(otpCodes).values({ phone, code, expiresAt });
+}
+
+export async function verifyOtp(phone: string, code: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const now = new Date();
+  const result = await db.select().from(otpCodes)
+    .where(and(eq(otpCodes.phone, phone), eq(otpCodes.code, code), eq(otpCodes.verified, 0), gte(otpCodes.expiresAt, now)))
+    .orderBy(desc(otpCodes.createdAt)).limit(1);
+  if (result.length === 0) return false;
+  await db.update(otpCodes).set({ verified: 1 }).where(eq(otpCodes.id, result[0].id));
+  return true;
 }

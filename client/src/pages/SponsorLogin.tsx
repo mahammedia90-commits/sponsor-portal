@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 /* ── Logo URLs ── */
@@ -200,6 +201,12 @@ export default function SponsorLogin() {
   const [countdown, setCountdown] = useState(0);
   const [slideDir, setSlideDir] = useState<"next" | "prev">("next");
   const [visible, setVisible] = useState(true);
+  const [devOtp, setDevOtp] = useState("");
+
+  // tRPC mutations
+  const sendOtpMutation = trpc.sponsorAuth.sendOtp.useMutation();
+  const verifyOtpMutation = trpc.sponsorAuth.verifyOtp.useMutation();
+  const registerMutation = trpc.sponsorAuth.register.useMutation();
 
   /* Interest types from translation */
   const interestKeys = ["tech", "food", "retail", "health", "realestate", "finance", "education", "media", "automotive", "other"];
@@ -228,49 +235,69 @@ export default function SponsorLogin() {
   const handleSendOTP = async () => {
     if (phone.length < 9) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const fullPhone = `966${phone}`;
+      const result = await sendOtpMutation.mutateAsync({ phone: fullPhone });
+      if (result.fallbackCode) setDevOtp(result.fallbackCode);
+      setCountdown(60);
+      goStep(1);
+    } catch {
+      // error
+    }
     setLoading(false);
-    setCountdown(60);
-    goStep(1);
   };
 
   /* ── Verify OTP ── */
   const handleVerifyOTP = async () => {
     if (otp.length < 6) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      const fullPhone = `966${phone}`;
+      const result = await verifyOtpMutation.mutateAsync({ phone: fullPhone, code: otp });
+      if (result.success) {
+        goStep(2);
+      } else {
+        setOtp("");
+      }
+    } catch {
+      setOtp("");
+    }
     setLoading(false);
-    goStep(2);
   };
 
   /* ── Save profile & enter platform ── */
   const handleSaveProfile = async () => {
     if (!fullName.trim() || !companyName.trim()) return;
     setLoading(true);
-    const sponsorLead = {
-      phone: `+966${phone}`,
-      fullName: fullName.trim(),
-      companyName: companyName.trim(),
-      interest: interest || (language === "ar" ? "غير محدد" : "Not specified"),
-      role: "sponsor_lead",
-      createdAt: new Date().toISOString(),
-    };
-    console.log("📋 Sponsor Lead saved to CRM:", sponsorLead);
-    localStorage.setItem("sponsor_session", JSON.stringify(sponsorLead));
-    localStorage.setItem("sponsor_authenticated", "true");
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    navigate("/dashboard");
+    try {
+      const fullPhone = `966${phone}`;
+      await registerMutation.mutateAsync({
+        phone: fullPhone,
+        fullName: fullName.trim(),
+        companyName: companyName.trim(),
+        interest: interest || undefined,
+      });
+      // Cookie set by server — reload to pick it up
+      window.location.href = "/dashboard";
+    } catch {
+      setLoading(false);
+    }
   };
 
   /* ── Resend OTP ── */
   const handleResend = async () => {
     if (countdown > 0) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      const fullPhone = `966${phone}`;
+      const result = await sendOtpMutation.mutateAsync({ phone: fullPhone });
+      if (result.fallbackCode) setDevOtp(result.fallbackCode);
+      setCountdown(60);
+      setOtp("");
+    } catch {
+      // error
+    }
     setLoading(false);
-    setCountdown(60);
-    setOtp("");
   };
 
   return (
@@ -422,6 +449,15 @@ export default function SponsorLogin() {
                     +966 {phone}
                   </p>
                 </div>
+
+                {/* Dev OTP hint */}
+                {devOtp && (
+                  <div className="rounded-xl p-3 text-center mb-4" style={{ background: 'rgba(212,168,50,0.08)', border: '1px solid rgba(212,168,50,0.2)' }}>
+                    <p className="text-xs text-white/50">
+                      رمز التطوير: <span className="font-bold text-base text-white" dir="ltr">{devOtp}</span>
+                    </p>
+                  </div>
+                )}
 
                 <div className="mb-6">
                   <OTPInput value={otp} onChange={setOtp} />

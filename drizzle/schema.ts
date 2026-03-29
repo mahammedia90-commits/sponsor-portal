@@ -438,3 +438,16 @@ export const brandExposureMetrics = mysqlTable("brand_exposure_metrics", {
 
 export type BrandExposureMetric = typeof brandExposureMetrics.$inferSelect;
 export type InsertBrandExposureMetric = typeof brandExposureMetrics.$inferInsert;
+
+// ============================================================
+// OTP Codes (shared table)
+// ============================================================
+export const otpCodes = mysqlTable("otp_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  code: varchar("code", { length: 10 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  verified: int("verified").default(0),
+  attempts: int("attempts").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
